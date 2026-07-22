@@ -1,0 +1,14 @@
+{
+  "runtime_source_id": "pixeltops",
+  "validation_profile": "ceratops-compatible",
+  "sections": {
+    "core": "templates/sections/core.md"
+  },
+  "skills": {
+    "pixeltops-image-editor": [
+      "core"
+    ]
+  },
+  "maintenance_workflows": {},
+  "runtime_payloads": {}
+}

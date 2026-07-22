@@ -1,0 +1,4 @@
+interface:
+  display_name: "PixelTops Image Editor"
+  short_description: "Precise mask-bounded image editing and pixel verification"
+  default_prompt: "Use $pixeltops-image-editor to edit this image only inside an explicit mask and verify every protected pixel."
