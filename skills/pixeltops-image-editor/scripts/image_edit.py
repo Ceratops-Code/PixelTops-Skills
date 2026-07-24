@@ -74,10 +74,19 @@ def run_worker(python_exe: pathlib.Path, worker: str, arguments: list[str]) -> d
         raise RuntimeError(f"worker returned invalid JSON: {stdout[-1000:]}") from exc
 
 
-def ensure_output_target(path: pathlib.Path, overwrite: bool) -> None:
-    if path.exists() and not overwrite:
-        raise ValueError(f"output exists; pass --overwrite to replace it: {path}")
-    path.parent.mkdir(parents=True, exist_ok=True)
+def target_existence_check(paths: list[pathlib.Path | None], overwrite: bool) -> None:
+    """Validate every destination before any worker can create or replace files."""
+
+    targets = [path for path in paths if path is not None]
+    normalized = [os.path.normcase(str(path.resolve())) for path in targets]
+    if len(normalized) != len(set(normalized)):
+        raise ValueError("output paths must be distinct")
+    existing = [path for path in targets if path.exists()]
+    if existing and not overwrite:
+        joined = ", ".join(str(path) for path in existing)
+        raise ValueError(f"output exists; pass --overwrite to replace it: {joined}")
+    for path in targets:
+        path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def artifact_path(output: pathlib.Path, label: str) -> pathlib.Path:
@@ -95,6 +104,8 @@ def add_selection_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def selection_arguments(args: argparse.Namespace, output_mask: pathlib.Path) -> list[str]:
+    # The worker may overwrite only after the launcher checks the complete
+    # destination set before starting any stage of the operation.
     command = ["select", str(args.input), str(output_mask), "--box-index", str(args.box_index), "--threshold", str(args.threshold), "--expand", str(args.expand), "--overwrite"]
     if args.text:
         command += ["--text", args.text]
@@ -109,8 +120,9 @@ def selection_arguments(args: argparse.Namespace, output_mask: pathlib.Path) -> 
 
 
 def resolve_selection(args: argparse.Namespace, output: pathlib.Path) -> tuple[pathlib.Path, dict[str, Any]]:
+    """Create the selection after the caller checks every operation output."""
+
     mask_output = args.selection_mask_output or artifact_path(output, "selection-mask")
-    ensure_output_target(mask_output, args.overwrite)
     result = run_worker(runtime_paths()["mask_python"], "mask_worker.py", selection_arguments(args, mask_output))
     return mask_output, result
 
@@ -218,16 +230,14 @@ def main() -> int:
             return emit({"status": "OK", "version": VERSION, "mask": mask, "inpaint": inpaint})
 
         if args.command == "select":
-            ensure_output_target(args.output_mask, args.overwrite)
-            if args.preview:
-                ensure_output_target(args.preview, args.overwrite)
+            target_existence_check([args.output_mask, args.preview], args.overwrite)
             return emit(run_worker(paths["mask_python"], "mask_worker.py", selection_arguments(args, args.output_mask)))
 
         if args.command in {"erase", "fill"}:
-            ensure_output_target(args.output, args.overwrite)
-            selection_mask, selection = resolve_selection(args, args.output)
+            selection_mask = args.selection_mask_output or artifact_path(args.output, "selection-mask")
             allowed = args.allowed_mask_output or artifact_path(args.output, "allowed-mask")
-            ensure_output_target(allowed, args.overwrite)
+            target_existence_check([args.output, selection_mask, allowed, args.preview], args.overwrite)
+            selection_mask, selection = resolve_selection(args, args.output)
             operation = run_worker(
                 paths["inpaint_python"],
                 "inpaint_worker.py",
@@ -236,10 +246,10 @@ def main() -> int:
             return emit({"status": "OK", "command": args.command, "selection": selection, "operation": operation})
 
         if args.command in {"remove-background", "replace-background"}:
-            ensure_output_target(args.output, args.overwrite)
-            selection_mask, selection = resolve_selection(args, args.output)
+            selection_mask = args.selection_mask_output or artifact_path(args.output, "selection-mask")
             allowed = args.allowed_mask_output or artifact_path(args.output, "allowed-mask")
-            ensure_output_target(allowed, args.overwrite)
+            target_existence_check([args.output, selection_mask, allowed, args.preview], args.overwrite)
+            selection_mask, selection = resolve_selection(args, args.output)
             command = [args.command, str(args.input), str(selection_mask), str(args.output), "--allowed-mask-output", str(allowed), "--feather", str(args.feather), "--overwrite"]
             if args.command == "replace-background":
                 if args.background:
@@ -251,9 +261,8 @@ def main() -> int:
             return emit({"status": "OK", "command": args.command, "selection": selection, "operation": operation})
 
         if args.command == "composite":
-            ensure_output_target(args.output, args.overwrite)
             allowed = args.allowed_mask_output or artifact_path(args.output, "allowed-mask")
-            ensure_output_target(allowed, args.overwrite)
+            target_existence_check([args.output, allowed], args.overwrite)
             command = [
                 "composite", str(args.base), str(args.edited), str(args.mask), str(args.output),
                 "--method", args.method, "--feather", str(args.feather), "--transition", str(args.transition),
@@ -262,12 +271,12 @@ def main() -> int:
             return emit(run_worker(paths["mask_python"], "mask_worker.py", command))
 
         if args.command == "resize":
-            ensure_output_target(args.output, args.overwrite)
+            target_existence_check([args.output], args.overwrite)
             command = ["resize", str(args.input), str(args.output), str(args.width), str(args.height), "--mode", args.mode, "--color", args.color] + worker_overwrite(args)
             return emit(run_worker(paths["mask_python"], "mask_worker.py", command))
 
         if args.command == "preview":
-            ensure_output_target(args.output, args.overwrite)
+            target_existence_check([args.output], args.overwrite)
             command = ["preview", str(args.input), str(args.mask), str(args.output), "--color", args.color, "--opacity", str(args.opacity)] + worker_overwrite(args)
             return emit(run_worker(paths["mask_python"], "mask_worker.py", command))
 

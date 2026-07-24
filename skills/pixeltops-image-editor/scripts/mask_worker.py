@@ -227,6 +227,21 @@ def fit_image(image: Image.Image, width: int, height: int, mode: str, color: str
     return canvas
 
 
+def prepare_resize_output(image: Image.Image, output: pathlib.Path, color: str) -> Image.Image:
+    """Flatten transparency only when required by a JPEG destination."""
+
+    if output.suffix.lower() not in {".jpg", ".jpeg"}:
+        return image
+    rgba = image.convert("RGBA")
+    if rgba.getchannel("A").getextrema()[0] < 255:
+        if color.lower() == "transparent":
+            raise ValueError("JPEG output cannot contain transparency; pass an opaque --color")
+        matte = Image.new("RGBA", rgba.size, color_rgba(color))
+        matte.alpha_composite(rgba)
+        rgba = matte
+    return rgba.convert("RGB")
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser()
     commands = root.add_subparsers(dest="command", required=True)
@@ -392,6 +407,7 @@ def main() -> int:
         if args.command == "resize":
             source = Image.open(require_file(args.input)).convert("RGBA")
             result = fit_image(source, args.width, args.height, args.mode, args.color)
+            result = prepare_resize_output(result, args.output, args.color)
             array = np.asarray(result, dtype=np.uint8)
             atomic_save(array, args.output, args.overwrite)
             return emit({"status": "OK", "output": str(args.output.resolve()), "width": args.width, "height": args.height, "mode": args.mode})
