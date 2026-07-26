@@ -1,0 +1,4 @@
+[tool.mypy]
+python_version = "3.12"
+files = ["scripts"]
+check_untyped_defs = true
