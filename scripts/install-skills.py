@@ -17,7 +17,7 @@ import subprocess
 import sys
 
 
-INSTALLER_VERSION = 2
+INSTALLER_VERSION = 4
 LIFECYCLE_SKILL = "ceratops-skill-lifecycle"
 RESOLVER_RELATIVE = pathlib.Path("scripts/runtime/resolve-lifecycle-bundle.py")
 INSTALLER_RELATIVE = pathlib.Path("scripts/runtime/install-managed-skills.py")
