@@ -2,4 +2,4 @@
 mypy==2.3.0
 numpy==2.4.4
 opencv-python-headless==4.13.0.92
-pillow==12.2.0
+pillow==12.3.0
