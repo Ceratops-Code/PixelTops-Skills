@@ -27,3 +27,11 @@ jobs:
         run: >-
           python scripts/validate_repository.py
           --evidence-file "$RUNNER_TEMP/repository-validation.jsonl"
+      - name: Upload failed validation evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: repository-validation-evidence
+          path: ${{ runner.temp }}/repository-validation.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
