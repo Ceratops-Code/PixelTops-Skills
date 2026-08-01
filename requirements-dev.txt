@@ -1,5 +1,5 @@
 # Dependencies for the repository-maintenance validator.
 mypy==2.3.0
 numpy==2.5.1
-opencv-python-headless==4.13.0.92
+opencv-python-headless==5.0.0.93
 pillow==12.3.0
