@@ -1,4 +1,6 @@
 __pycache__/
 *.py[cod]
+.mypy_cache/
+.validation-evidence.jsonl
 .venv/
 .env
