@@ -1,0 +1,31 @@
+---
+name: Feature request
+description: >-
+  Suggest a focused improvement to a PixelTops skill or runtime helper
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What image-editing problem should the repository solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should the skill or helper do differently?
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Change boundaries
+      description: >-
+        Describe the intended selection, mask, output, and preservation
+        requirements
+    validations:
+      required: true
