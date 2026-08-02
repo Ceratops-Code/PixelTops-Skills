@@ -1,0 +1,39 @@
+---
+name: Bug report
+description: >-
+  Report a reproducible defect in a PixelTops skill or runtime helper
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: input
+    id: component
+    attributes:
+      label: Affected component
+      description: Name the skill, script, or runtime helper
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: >-
+        Provide minimal commands, inputs, and image properties needed to
+        reproduce the defect
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        Include the OS, Python version, and relevant dependency versions
+    validations:
+      required: true
