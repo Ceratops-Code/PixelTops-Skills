@@ -1,0 +1,33 @@
+{
+  "schema": "pixeltops-image-runtime.v1",
+  "runtime_relative_path": "tools/masked-image-edit",
+  "environments": {
+    "mask": {
+      "relative_path": "envs/mask",
+      "python": "3.12.13",
+      "requirements": "deploy/runtime/mask-requirements.txt"
+    },
+    "inpaint": {
+      "relative_path": "envs/inpaint",
+      "python": "3.10.20",
+      "requirements": "deploy/runtime/inpaint-requirements.txt"
+    }
+  },
+  "huggingface_cache": "models/huggingface",
+  "huggingface_models": {
+    "grounding_dino": {
+      "id": "IDEA-Research/grounding-dino-base",
+      "revision": "12bdfa3120f3e7ec7b434d90674b3396eccf88eb"
+    },
+    "sam2": {
+      "id": "facebook/sam2.1-hiera-large",
+      "revision": "665f8e2ad61cf5f53d65644ff27c8ee525124610"
+    }
+  },
+  "torch_home": "models/iopaint/torch",
+  "lama": {
+    "relative_path": "models/iopaint/torch/hub/checkpoints/big-lama.pt",
+    "url": "https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt",
+    "md5": "e3aa4aaa15225a33ec84f9f4bc47e500"
+  }
+}

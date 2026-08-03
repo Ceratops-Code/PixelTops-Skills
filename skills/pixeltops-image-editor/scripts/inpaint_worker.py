@@ -51,7 +51,6 @@ def transition_alpha(mask: np.ndarray, feather: float) -> tuple[np.ndarray, np.n
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser()
     commands = root.add_subparsers(dest="command", required=True)
-    commands.add_parser("doctor")
     erase = commands.add_parser("erase")
     erase.add_argument("input", type=pathlib.Path)
     erase.add_argument("mask", type=pathlib.Path)
@@ -65,15 +64,6 @@ def parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = parser().parse_args()
     try:
-        if args.command == "doctor":
-            import importlib.metadata
-            import torch
-
-            torch_home = pathlib.Path(os.environ.get("TORCH_HOME", ""))
-            model = torch_home / "hub" / "checkpoints" / "big-lama.pt"
-            present = model.is_file()
-            return emit({"status": "OK" if present else "ERROR", "python": sys.version.split()[0], "iopaint": importlib.metadata.version("iopaint"), "torch": torch.__version__, "lama": str(model), "modelPresent": present}, error=not present)
-
         if args.command == "erase":
             from iopaint.model_manager import ModelManager
             from iopaint.schema import HDStrategy, InpaintRequest

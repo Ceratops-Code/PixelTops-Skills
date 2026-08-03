@@ -49,7 +49,16 @@ def repository_checks() -> tuple[Check, ...]:
                 sys.executable,
                 "-m",
                 "json.tool",
-                "templates/skill-sections.json",
+                "skills/skill-sections.json",
+            ),
+        ),
+        Check(
+            "runtime-contract",
+            (
+                sys.executable,
+                "-m",
+                "json.tool",
+                "skills/pixeltops-image-editor/references/runtime-contract.json",
             ),
         ),
         Check(

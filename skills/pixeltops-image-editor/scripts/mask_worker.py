@@ -16,8 +16,37 @@ import numpy as np
 from PIL import Image, ImageColor
 
 
-GROUNDING_REVISION = "12bdfa3120f3e7ec7b434d90674b3396eccf88eb"
-SAM2_REVISION = "665f8e2ad61cf5f53d65644ff27c8ee525124610"
+HERE = pathlib.Path(__file__).resolve().parent
+RUNTIME_CONTRACT = HERE.parent / "references" / "runtime-contract.json"
+
+
+def runtime_contract() -> dict[str, Any]:
+    """Load the deployment-owned model identities used by regular operations."""
+
+    value = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or value.get("schema") != "pixeltops-image-runtime.v1":
+        raise RuntimeError("runtime contract is invalid")
+    return value
+
+
+def model_declaration(name: str) -> tuple[str, str]:
+    """Return one exact Hugging Face model identity and revision."""
+
+    models = runtime_contract().get("huggingface_models")
+    if not isinstance(models, dict):
+        raise RuntimeError("runtime contract huggingface_models must be an object")
+    declaration = models.get(name)
+    if not isinstance(declaration, dict):
+        raise RuntimeError(f"runtime model declaration is missing: {name}")
+    model_id = declaration.get("id")
+    revision = declaration.get("revision")
+    if not isinstance(model_id, str) or not isinstance(revision, str):
+        raise RuntimeError(f"runtime model declaration is invalid: {name}")
+    return model_id, revision
+
+
+GROUNDING_MODEL_ID, GROUNDING_REVISION = model_declaration("grounding_dino")
+SAM2_MODEL_ID, SAM2_REVISION = model_declaration("sam2")
 
 
 def emit(payload: dict[str, Any], *, error: bool = False) -> int:
@@ -27,7 +56,12 @@ def emit(payload: dict[str, Any], *, error: bool = False) -> int:
 
 def models_root() -> pathlib.Path:
     codex = pathlib.Path(os.environ.get("CODEX_HOME") or pathlib.Path.home() / ".codex")
-    return codex / "tools" / "masked-image-edit" / "models" / "huggingface"
+    contract = runtime_contract()
+    runtime_path = contract.get("runtime_relative_path")
+    cache_path = contract.get("huggingface_cache")
+    if not isinstance(runtime_path, str) or not isinstance(cache_path, str):
+        raise RuntimeError("runtime contract model paths are invalid")
+    return codex / pathlib.Path(runtime_path) / pathlib.Path(cache_path)
 
 
 def model_snapshot(model_id: str, revision: str) -> pathlib.Path:
@@ -100,8 +134,8 @@ def text_object_mask(image: Image.Image, text: str, threshold: float, box_index:
         Sam2VideoConfig,
     )
 
-    grounding_path = model_snapshot("IDEA-Research/grounding-dino-base", GROUNDING_REVISION)
-    sam_path = model_snapshot("facebook/sam2.1-hiera-large", SAM2_REVISION)
+    grounding_path = model_snapshot(GROUNDING_MODEL_ID, GROUNDING_REVISION)
+    sam_path = model_snapshot(SAM2_MODEL_ID, SAM2_REVISION)
     if not grounding_path.is_dir() or not sam_path.is_dir():
         raise FileNotFoundError("pinned Grounding DINO or SAM 2.1 snapshot is missing")
 
@@ -245,8 +279,6 @@ def prepare_resize_output(image: Image.Image, output: pathlib.Path, color: str) 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser()
     commands = root.add_subparsers(dest="command", required=True)
-    commands.add_parser("doctor")
-
     select = commands.add_parser("select")
     select.add_argument("input", type=pathlib.Path)
     select.add_argument("output", type=pathlib.Path)
@@ -318,17 +350,6 @@ def parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = parser().parse_args()
     try:
-        if args.command == "doctor":
-            grounding = model_snapshot("IDEA-Research/grounding-dino-base", GROUNDING_REVISION)
-            sam = model_snapshot("facebook/sam2.1-hiera-large", SAM2_REVISION)
-            return emit({
-                "status": "OK" if grounding.is_dir() and sam.is_dir() else "ERROR",
-                "python": sys.version.split()[0],
-                "groundingDino": str(grounding),
-                "sam2": str(sam),
-                "modelsPresent": grounding.is_dir() and sam.is_dir(),
-            }, error=not (grounding.is_dir() and sam.is_dir()))
-
         if args.command == "select":
             image = Image.open(require_file(args.input)).convert("RGB")
             if args.text:

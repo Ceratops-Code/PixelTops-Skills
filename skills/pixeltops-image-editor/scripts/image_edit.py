@@ -17,22 +17,56 @@ import sys
 from typing import Any
 
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 HERE = pathlib.Path(__file__).resolve().parent
+RUNTIME_CONTRACT = HERE.parent / "references" / "runtime-contract.json"
 
 
 def codex_home() -> pathlib.Path:
     return pathlib.Path(os.environ.get("CODEX_HOME") or pathlib.Path.home() / ".codex")
 
 
+def contract_path(value: object, label: str) -> pathlib.Path:
+    """Return one portable path from the deployed runtime contract."""
+
+    if not isinstance(value, str) or not value:
+        raise RuntimeError(f"runtime contract {label} must be a non-empty string")
+    normalized = value.replace("\\", "/")
+    path = pathlib.PurePosixPath(normalized)
+    windows = pathlib.PureWindowsPath(normalized)
+    if path.is_absolute() or windows.is_absolute() or windows.drive or ".." in path.parts:
+        raise RuntimeError(f"runtime contract {label} must be portable and relative")
+    return pathlib.Path(*path.parts)
+
+
+def runtime_contract() -> dict[str, Any]:
+    """Load the runtime layout shared by deployment and skill workers."""
+
+    value = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or value.get("schema") != "pixeltops-image-runtime.v1":
+        raise RuntimeError("runtime contract is invalid")
+    return value
+
+
 def runtime_paths() -> dict[str, pathlib.Path]:
-    root = codex_home() / "tools" / "masked-image-edit"
+    contract = runtime_contract()
+    environments = contract.get("environments")
+    if not isinstance(environments, dict):
+        raise RuntimeError("runtime contract environments must be an object")
+    mask = environments.get("mask")
+    inpaint = environments.get("inpaint")
+    if not isinstance(mask, dict) or not isinstance(inpaint, dict):
+        raise RuntimeError("runtime contract environment declarations are invalid")
+    root = codex_home() / contract_path(
+        contract.get("runtime_relative_path"),
+        "runtime_relative_path",
+    )
     return {
         "root": root,
-        "mask_python": root / "envs" / "mask" / "Scripts" / "python.exe",
-        "inpaint_python": root / "envs" / "inpaint" / "Scripts" / "python.exe",
-        "hf_models": root / "models" / "huggingface",
-        "torch_home": root / "models" / "iopaint" / "torch",
+        "mask_python": root / contract_path(mask.get("relative_path"), "environments.mask.relative_path") / "Scripts" / "python.exe",
+        "inpaint_python": root / contract_path(inpaint.get("relative_path"), "environments.inpaint.relative_path") / "Scripts" / "python.exe",
+        "hf_models": root / contract_path(contract.get("huggingface_cache"), "huggingface_cache"),
+        "torch_home": root / contract_path(contract.get("torch_home"), "torch_home"),
     }
 
 
@@ -142,8 +176,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=VERSION)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("doctor", help="Validate runtimes, packages, models, and workers.")
-
     select = subparsers.add_parser("select", help="Create an object-shaped mask from text, polygon lasso, or an existing mask.")
     select.add_argument("input", type=pathlib.Path)
     select.add_argument("output_mask", type=pathlib.Path)
@@ -224,11 +256,6 @@ def main() -> int:
     args = build_parser().parse_args()
     paths = runtime_paths()
     try:
-        if args.command == "doctor":
-            mask = run_worker(paths["mask_python"], "mask_worker.py", ["doctor"])
-            inpaint = run_worker(paths["inpaint_python"], "inpaint_worker.py", ["doctor"])
-            return emit({"status": "OK", "version": VERSION, "mask": mask, "inpaint": inpaint})
-
         if args.command == "select":
             target_existence_check([args.output_mask, args.preview], args.overwrite)
             return emit(run_worker(paths["mask_python"], "mask_worker.py", selection_arguments(args, args.output_mask)))

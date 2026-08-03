@@ -33,24 +33,23 @@ commands are:
 - `remove-background` or `replace-background` for foreground-aware output.
 - `composite` for hard, feathered, or seamless masked blending.
 - `resize` for explicit contain, cover, or stretch behavior.
-- `preview`, `verify`, and `doctor` for inspection and evidence.
+- `preview` and `verify` for visual and pixel-boundary evidence.
 
 Use `--help` on the selected command for exact arguments. Do not reimplement
 these deterministic operations in prompt text or ad hoc scripts.
 
 ## Workflow
 
-1. Run `doctor` when runtime or model state is not already fresh and verified.
-2. For `select`, `erase`, `fill`, `remove-background`, and
+1. For `select`, `erase`, `fill`, `remove-background`, and
    `replace-background`, resolve a selection mask. For text or polygon
    selection, also create and inspect a preview before editing.
-3. If multiple text-grounded candidates exist, use `--box-index` only when the
+2. If multiple text-grounded candidates exist, use `--box-index` only when the
    request or preview identifies the intended object; otherwise ask.
-4. Run the narrowest operation. For mask-based mutating commands, keep the
+3. Run the narrowest operation. For mask-based mutating commands, keep the
    generated selection mask and allowed-change mask beside the result.
-5. For masked RGB edits, require the operation audit or a separate `verify`
+4. For masked RGB edits, require the operation audit or a separate `verify`
    command to report `outsideChangedPixels: 0`.
-6. Inspect the result for task correctness. A successful pixel audit proves
+5. Inspect the result for task correctness. A successful pixel audit proves
    scope containment, not visual quality inside the mask.
 
 ## Constraints
