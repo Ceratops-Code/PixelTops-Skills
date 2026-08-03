@@ -1,0 +1,20 @@
+version: 1
+kind: ceratops-deploy
+operations:
+  deploy:
+    steps:
+      - id: install-runtime
+        run:
+          - python
+          - scripts/install-runtime.py
+      - id: runtime-validation
+        run:
+          - python
+          - scripts/runtime-validation.py
+    handoff: ceratops-skill-lifecycle/deploy
+  bootstrap:
+    steps:
+      - id: bootstrap-skills
+        run:
+          - python
+          - scripts/install-skills-bootstrap.py

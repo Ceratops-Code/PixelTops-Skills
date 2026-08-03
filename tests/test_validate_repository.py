@@ -61,7 +61,13 @@ class ValidateRepositoryTests(unittest.TestCase):
                     sys.executable,
                     "-m",
                     "json.tool",
-                    "templates/skill-sections.json",
+                    "skills/skill-sections.json",
+                ),
+                (
+                    sys.executable,
+                    "-m",
+                    "json.tool",
+                    "skills/pixeltops-image-editor/references/runtime-contract.json",
                 ),
                 (
                     sys.executable,
@@ -95,14 +101,24 @@ class ValidateRepositoryTests(unittest.TestCase):
             ]
             self.assertEqual(
                 [record["check"] for record in evidence],
-                ["section-manifest", "python-compilation", "mypy", "unit-tests"],
+                [
+                    "section-manifest",
+                    "runtime-contract",
+                    "python-compilation",
+                    "mypy",
+                    "unit-tests",
+                ],
             )
             self.assertTrue(all(record["status"] == "OK" for record in evidence))
 
     def test_propagates_failure_and_stops_with_compact_json(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             evidence_file = pathlib.Path(directory) / "validation.jsonl"
-            results = [completed(), completed(7, "detail out", "detail err")]
+            results = [
+                completed(),
+                completed(),
+                completed(7, "detail out", "detail err"),
+            ]
 
             exit_code, stdout, stderr, run = self.invoke(
                 evidence_file, REPO_ROOT, results
@@ -120,7 +136,7 @@ class ValidateRepositoryTests(unittest.TestCase):
                 json.dumps(expected, separators=(",", ":"), sort_keys=True) + "\n",
             )
             self.assertEqual(stderr, "")
-            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_count, 3)
             evidence = [
                 json.loads(line)
                 for line in evidence_file.read_text(encoding="utf-8").splitlines()
@@ -131,13 +147,20 @@ class ValidateRepositoryTests(unittest.TestCase):
     def test_handles_repository_and_evidence_paths_with_spaces(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repo_root = pathlib.Path(directory) / "repository with spaces"
-            (repo_root / "templates").mkdir(parents=True)
+            (repo_root / "skills").mkdir(parents=True)
             (repo_root / "scripts").mkdir()
             (repo_root / "skills" / "pixeltops-image-editor" / "scripts").mkdir(
                 parents=True
             )
             (repo_root / "tests").mkdir()
-            (repo_root / "templates" / "skill-sections.json").write_text(
+            (repo_root / "skills" / "skill-sections.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            runtime_references = (
+                repo_root / "skills" / "pixeltops-image-editor" / "references"
+            )
+            runtime_references.mkdir(parents=True)
+            (runtime_references / "runtime-contract.json").write_text(
                 "{}\n", encoding="utf-8"
             )
             (repo_root / "scripts" / "example.py").write_text(
