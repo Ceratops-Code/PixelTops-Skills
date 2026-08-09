@@ -29,6 +29,18 @@ assert INSTALLER_SPEC is not None and INSTALLER_SPEC.loader is not None
 installer = importlib.util.module_from_spec(INSTALLER_SPEC)
 INSTALLER_SPEC.loader.exec_module(installer)
 
+CANONICAL_VALIDATOR_PATH = SCRIPTS_ROOT / "validate-repository.py"
+CANONICAL_VALIDATOR_SPEC = importlib.util.spec_from_file_location(
+    "pixeltops_canonical_validator",
+    CANONICAL_VALIDATOR_PATH,
+)
+assert (
+    CANONICAL_VALIDATOR_SPEC is not None
+    and CANONICAL_VALIDATOR_SPEC.loader is not None
+)
+canonical_validator = importlib.util.module_from_spec(CANONICAL_VALIDATOR_SPEC)
+CANONICAL_VALIDATOR_SPEC.loader.exec_module(canonical_validator)
+
 
 def completed(
     returncode: int = 0, stdout: str = "", stderr: str = ""
@@ -363,6 +375,50 @@ class ValidateRepositoryTests(unittest.TestCase):
         self.assertEqual(environment["HF_HUB_DISABLE_SYMLINKS"], "1")
         if "PATH" in installer.os.environ:
             self.assertEqual(environment["PATH"], installer.os.environ["PATH"])
+
+    def test_canonical_validator_reports_evidence_write_errors_compactly(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            evidence_file = root / "evidence"
+            evidence_file.mkdir()
+            definition = {
+                "id": "failing-check",
+                "command": [sys.executable, "-c", "raise SystemExit(7)"],
+                "cwd": ".",
+                "exclusive": True,
+                "python_packages": [],
+            }
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with (
+                mock.patch.object(
+                    canonical_validator,
+                    "CHECK_DEFINITIONS",
+                    [definition],
+                ),
+                mock.patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "validate-repository.py",
+                        "--evidence-file",
+                        str(evidence_file),
+                    ],
+                ),
+                contextlib.redirect_stdout(stdout),
+                contextlib.redirect_stderr(stderr),
+            ):
+                exit_code = canonical_validator.main()
+
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(exit_code, 1)
+            self.assertEqual(payload["check"], "evidence-write")
+            self.assertEqual(payload["exit_code"], 1)
+            self.assertEqual(payload["evidence_file"], str(evidence_file.resolve()))
+            self.assertIn("write_error", payload)
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertEqual(stdout.getvalue().count("\n"), 1)
+            self.assertFalse((root / ".evidence.tmp").exists())
 
     def test_evidence_write_errors_are_compact_json_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

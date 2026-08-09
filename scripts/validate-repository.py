@@ -153,28 +153,46 @@ def main() -> int:
                 )
             if result.returncode == 0:
                 continue
-            evidence_file.parent.mkdir(parents=True, exist_ok=True)
             partial = evidence_file.with_name(f".{evidence_file.name}.tmp")
             retained_child_evidence = child_evidence(argv, temporary_root)
-            partial.write_text(
-                "\n".join(
-                    (
-                        f"check: {definition['id']}",
-                        f"exit_code: {result.returncode}",
-                        f"cwd: {cwd}",
-                        "command: " + json.dumps(argv, separators=(",", ":")),
-                        "stdout:",
-                        result.stdout or "",
-                        "stderr:",
-                        result.stderr or "",
-                        *retained_child_evidence,
+            try:
+                evidence_file.parent.mkdir(parents=True, exist_ok=True)
+                partial.write_text(
+                    "\n".join(
+                        (
+                            f"check: {definition['id']}",
+                            f"exit_code: {result.returncode}",
+                            f"cwd: {cwd}",
+                            "command: " + json.dumps(argv, separators=(",", ":")),
+                            "stdout:",
+                            result.stdout or "",
+                            "stderr:",
+                            result.stderr or "",
+                            *retained_child_evidence,
+                        )
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                partial.replace(evidence_file)
+            except OSError as exc:
+                try:
+                    partial.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                print(
+                    json.dumps(
+                        {
+                            "check": "evidence-write",
+                            "exit_code": 1,
+                            "evidence_file": str(evidence_file),
+                            "write_error": f"{type(exc).__name__}: {exc}",
+                        },
+                        separators=(",", ":"),
                     )
                 )
-                + "\n",
-                encoding="utf-8",
-                newline="\n",
-            )
-            partial.replace(evidence_file)
+                return 1
             print(
                 json.dumps(
                     {
