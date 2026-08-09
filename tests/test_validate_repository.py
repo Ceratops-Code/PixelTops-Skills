@@ -229,6 +229,22 @@ class ValidateRepositoryTests(unittest.TestCase):
         self.assertEqual(stderr.getvalue(), "")
         self.assertEqual(stdout.getvalue().count("\n"), 1)
 
+    def test_lama_runtime_contract_uses_neutral_storage_identity(self) -> None:
+        contract = json.loads(
+            (
+                REPO_ROOT
+                / "skills"
+                / "pixeltops-image-editor"
+                / "references"
+                / "runtime-contract.json"
+            ).read_text(encoding="utf-8")
+        )
+        lama = contract["lama"]
+
+        self.assertEqual(lama["relative_path"], "models/lama/big-lama.pt")
+        self.assertEqual(lama["backend"], "repository-torchscript")
+        self.assertEqual(lama["device"], "cpu")
+        self.assertEqual(lama["md5"], "e3aa4aaa15225a33ec84f9f4bc47e500")
 
     def test_current_marker_requires_matching_environment_fingerprint(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
