@@ -337,6 +337,33 @@ class ValidateRepositoryTests(unittest.TestCase):
             ]
         )
 
+    def test_huggingface_install_uses_no_symlink_cache_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            python_exe = root / "envs" / "mask" / "Scripts" / "python.exe"
+            with (
+                mock.patch.object(
+                    installer,
+                    "environment_python",
+                    return_value=python_exe,
+                ),
+                mock.patch.object(
+                    installer,
+                    "huggingface_declarations",
+                    return_value=(("example/model", "a" * 40),),
+                ),
+                mock.patch.object(installer, "run_checked") as run,
+            ):
+                installer.install_huggingface_models(root)
+
+        arguments = run.call_args.args[0]
+        environment = run.call_args.kwargs["environment"]
+        self.assertEqual(arguments[0], str(python_exe))
+        self.assertEqual(arguments[-3:-1], ["example/model", "a" * 40])
+        self.assertEqual(environment["HF_HUB_DISABLE_SYMLINKS"], "1")
+        if "PATH" in installer.os.environ:
+            self.assertEqual(environment["PATH"], installer.os.environ["PATH"])
+
     def test_evidence_write_errors_are_compact_json_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             stdout = io.StringIO()
