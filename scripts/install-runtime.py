@@ -230,7 +230,7 @@ def environment_fingerprint(python_exe: pathlib.Path) -> str:
     """Hash the normalized name and version of every installed distribution."""
 
     value = run_checked(
-        [str(python_exe), "-c", ENVIRONMENT_FINGERPRINT_CODE]
+        [str(python_exe), "-I", "-c", ENVIRONMENT_FINGERPRINT_CODE]
     ).lower()
     if len(value) != 64 or any(
         character not in "0123456789abcdef" for character in value

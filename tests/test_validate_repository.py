@@ -303,6 +303,24 @@ class ValidateRepositoryTests(unittest.TestCase):
         self.assertEqual(len(first), 64)
         self.assertTrue(all(character in "0123456789abcdef" for character in first))
 
+    def test_environment_fingerprint_uses_isolated_interpreter(self) -> None:
+        python_exe = pathlib.Path("environment") / "Scripts" / "python.exe"
+        with mock.patch.object(
+            installer,
+            "run_checked",
+            return_value="a" * 64,
+        ) as run:
+            self.assertEqual(installer.environment_fingerprint(python_exe), "a" * 64)
+
+        run.assert_called_once_with(
+            [
+                str(python_exe),
+                "-I",
+                "-c",
+                installer.ENVIRONMENT_FINGERPRINT_CODE,
+            ]
+        )
+
     def test_evidence_write_errors_are_compact_json_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             stdout = io.StringIO()
