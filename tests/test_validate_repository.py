@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.util
 import io
 import json
 import pathlib
@@ -18,6 +19,15 @@ SCRIPTS_ROOT = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS_ROOT))
 
 import validate_repository as validator  # noqa: E402
+
+INSTALLER_PATH = SCRIPTS_ROOT / "install-runtime.py"
+INSTALLER_SPEC = importlib.util.spec_from_file_location(
+    "pixeltops_install_runtime",
+    INSTALLER_PATH,
+)
+assert INSTALLER_SPEC is not None and INSTALLER_SPEC.loader is not None
+installer = importlib.util.module_from_spec(INSTALLER_SPEC)
+INSTALLER_SPEC.loader.exec_module(installer)
 
 
 def completed(
@@ -218,6 +228,98 @@ class ValidateRepositoryTests(unittest.TestCase):
         self.assertEqual(payload["error"], "usage")
         self.assertEqual(stderr.getvalue(), "")
         self.assertEqual(stdout.getvalue().count("\n"), 1)
+
+
+    def test_current_marker_requires_matching_environment_fingerprint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            environment = pathlib.Path(directory) / "environment"
+            python_exe = environment / "Scripts" / "python.exe"
+            python_exe.parent.mkdir(parents=True)
+            python_exe.touch()
+            installer.write_marker(
+                environment,
+                python_version="3.10.20",
+                requirements_sha256="requirements",
+                environment_sha256="a" * 64,
+            )
+
+            with mock.patch.object(
+                installer,
+                "environment_fingerprint",
+                return_value="a" * 64,
+            ):
+                self.assertTrue(
+                    installer.environment_is_current(
+                        python_exe,
+                        python_version="3.10.20",
+                        requirements_sha256="requirements",
+                    )
+                )
+            with mock.patch.object(
+                installer,
+                "environment_fingerprint",
+                return_value="b" * 64,
+            ):
+                self.assertFalse(
+                    installer.environment_is_current(
+                        python_exe,
+                        python_version="3.10.20",
+                        requirements_sha256="requirements",
+                    )
+                )
+
+    def test_legacy_marker_is_stale_without_running_fingerprint_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            environment = pathlib.Path(directory) / "environment"
+            python_exe = environment / "Scripts" / "python.exe"
+            python_exe.parent.mkdir(parents=True)
+            python_exe.touch()
+            (environment / installer.ENVIRONMENT_MARKER).write_text(
+                json.dumps(
+                    {
+                        "schema": "pixeltops-runtime-environment.v1",
+                        "python": "3.10.20",
+                        "requirements_sha256": "requirements",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(installer, "environment_fingerprint") as probe:
+                self.assertFalse(
+                    installer.environment_is_current(
+                        python_exe,
+                        python_version="3.10.20",
+                        requirements_sha256="requirements",
+                    )
+                )
+            probe.assert_not_called()
+
+    def test_environment_fingerprint_is_deterministic_sha256(self) -> None:
+        first = installer.environment_fingerprint(pathlib.Path(sys.executable))
+        second = installer.environment_fingerprint(pathlib.Path(sys.executable))
+
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 64)
+        self.assertTrue(all(character in "0123456789abcdef" for character in first))
+
+    def test_environment_fingerprint_uses_isolated_interpreter(self) -> None:
+        python_exe = pathlib.Path("environment") / "Scripts" / "python.exe"
+        with mock.patch.object(
+            installer,
+            "run_checked",
+            return_value="a" * 64,
+        ) as run:
+            self.assertEqual(installer.environment_fingerprint(python_exe), "a" * 64)
+
+        run.assert_called_once_with(
+            [
+                str(python_exe),
+                "-I",
+                "-c",
+                installer.ENVIRONMENT_FINGERPRINT_CODE,
+            ]
+        )
 
     def test_evidence_write_errors_are_compact_json_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
