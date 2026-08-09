@@ -2,8 +2,8 @@
 """One public CLI for deterministic-mask image editing with isolated workers.
 
 The launcher itself uses only the Python standard library. It dispatches model
-work to the installed mask and IOPaint environments, preserving their
-incompatible dependency sets. Every successful command emits compact JSON.
+work to the installed mask and headless LaMa environments, preserving their
+isolated dependency sets. Every successful command emits compact JSON.
 """
 
 from __future__ import annotations
@@ -57,6 +57,9 @@ def runtime_paths() -> dict[str, pathlib.Path]:
     inpaint = environments.get("inpaint")
     if not isinstance(mask, dict) or not isinstance(inpaint, dict):
         raise RuntimeError("runtime contract environment declarations are invalid")
+    lama = contract.get("lama")
+    if not isinstance(lama, dict):
+        raise RuntimeError("runtime contract LaMa declaration is invalid")
     root = codex_home() / contract_path(
         contract.get("runtime_relative_path"),
         "runtime_relative_path",
@@ -66,7 +69,7 @@ def runtime_paths() -> dict[str, pathlib.Path]:
         "mask_python": root / contract_path(mask.get("relative_path"), "environments.mask.relative_path") / "Scripts" / "python.exe",
         "inpaint_python": root / contract_path(inpaint.get("relative_path"), "environments.inpaint.relative_path") / "Scripts" / "python.exe",
         "hf_models": root / contract_path(contract.get("huggingface_cache"), "huggingface_cache"),
-        "torch_home": root / contract_path(contract.get("torch_home"), "torch_home"),
+        "lama_model": root / contract_path(lama.get("relative_path"), "lama.relative_path"),
     }
 
 
@@ -87,7 +90,7 @@ def run_worker(python_exe: pathlib.Path, worker: str, arguments: list[str]) -> d
     if worker == "mask_worker.py":
         environment["HF_HOME"] = str(paths["hf_models"])
     if worker == "inpaint_worker.py":
-        environment["TORCH_HOME"] = str(paths["torch_home"])
+        environment["PIXELTOPS_LAMA_MODEL"] = str(paths["lama_model"])
     completed = subprocess.run(
         [str(python_exe), str(worker_path), *arguments],
         text=True,
