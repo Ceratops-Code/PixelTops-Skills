@@ -341,7 +341,7 @@ def install_huggingface_models(root: pathlib.Path) -> None:
 
 
 def file_md5(path: pathlib.Path) -> str:
-    """Return the upstream integrity digest used by IOPaint for LaMa."""
+    """Return the upstream integrity digest declared for Big-LaMa."""
 
     digest = hashlib.md5(usedforsecurity=False)
     with path.open("rb") as handle:
@@ -354,6 +354,10 @@ def install_lama_model(root: pathlib.Path) -> None:
     """Download LaMa to a temporary peer and activate only after verification."""
 
     lama = required_mapping(RUNTIME_CONTRACT.get("lama"), "lama")
+    if lama.get("backend") != "repository-torchscript":
+        raise InstallError("runtime contract lama.backend is unsupported")
+    if lama.get("device") != "cpu":
+        raise InstallError("runtime contract lama.device must be cpu")
     target = root / portable_relative(lama.get("relative_path"), "lama.relative_path")
     expected_md5 = required_text(lama.get("md5"), "lama.md5")
     source_url = required_text(lama.get("url"), "lama.url")

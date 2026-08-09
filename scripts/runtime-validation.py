@@ -195,8 +195,12 @@ def file_md5(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
-def validate_models(root: pathlib.Path, contract: Mapping[str, object]) -> None:
-    """Verify every pinned model artifact without invoking a downloader."""
+def validate_models(
+    root: pathlib.Path,
+    contract: Mapping[str, object],
+    inpaint_python: pathlib.Path,
+) -> None:
+    """Verify pinned model artifacts and load Big-LaMa on the declared CPU runtime."""
 
     cache = root / portable_relative(
         contract.get("huggingface_cache"),
@@ -215,12 +219,22 @@ def validate_models(root: pathlib.Path, contract: Mapping[str, object]) -> None:
             raise ValidationError(f"missing model snapshot: {snapshot}")
 
     lama = required_mapping(contract.get("lama"), "lama")
+    if lama.get("backend") != "repository-torchscript":
+        raise ValidationError("runtime contract lama.backend is unsupported")
+    if lama.get("device") != "cpu":
+        raise ValidationError("runtime contract lama.device must be cpu")
     lama_path = root / portable_relative(lama.get("relative_path"), "lama.relative_path")
     expected_md5 = required_text(lama.get("md5"), "lama.md5")
     if not lama_path.is_file():
         raise ValidationError(f"missing LaMa model: {lama_path}")
     if file_md5(lama_path) != expected_md5:
         raise ValidationError(f"LaMa model failed integrity validation: {lama_path}")
+    probe = (
+        "import sys, torch; "
+        "model = torch.jit.load(sys.argv[1], map_location=torch.device('cpu')); "
+        "model.eval(); print('OK')"
+    )
+    run_checked([str(inpaint_python), "-c", probe, str(lama_path)])
 
 
 def main() -> int:
@@ -242,8 +256,9 @@ def main() -> int:
                 "mask",
                 ("numpy", "PIL", "torch", "transformers", "pymatting", "cv2"),
             ),
-            ("inpaint", ("numpy", "PIL", "torch", "iopaint")),
+            ("inpaint", ("cv2", "numpy", "torch")),
         )
+        python_executables: dict[str, pathlib.Path] = {}
         for name, imports in declarations:
             declaration = required_mapping(
                 environments.get(name),
@@ -253,8 +268,9 @@ def main() -> int:
                 declaration.get("relative_path"),
                 f"environments.{name}.relative_path",
             )
+            python_exe = environment_root / "Scripts" / "python.exe"
             validate_environment(
-                environment_root / "Scripts" / "python.exe",
+                python_exe,
                 python_version=required_text(
                     declaration.get("python"),
                     f"environments.{name}.python",
@@ -266,7 +282,8 @@ def main() -> int:
                 ),
                 imports=imports,
             )
-        validate_models(root, contract)
+            python_executables[name] = python_exe
+        validate_models(root, contract, python_executables["inpaint"])
     except (ValidationError, OSError, subprocess.SubprocessError) as exc:
         print(
             json.dumps(
