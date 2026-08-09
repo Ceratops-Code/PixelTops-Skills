@@ -27,7 +27,7 @@
   "lama": {
     "backend": "repository-torchscript",
     "device": "cpu",
-    "relative_path": "models/iopaint/torch/hub/checkpoints/big-lama.pt",
+    "relative_path": "models/lama/big-lama.pt",
     "url": "https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt",
     "md5": "e3aa4aaa15225a33ec84f9f4bc47e500"
   }

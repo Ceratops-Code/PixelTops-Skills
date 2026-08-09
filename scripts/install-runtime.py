@@ -381,8 +381,16 @@ def install_huggingface_models(root: pathlib.Path) -> None:
         "snapshot_download(repo_id=sys.argv[1], revision=sys.argv[2], "
         "cache_dir=sys.argv[3])"
     )
+    download_environment = os.environ.copy()
+    # The runtime must install without Windows Developer Mode or elevation.
+    # Hugging Face's supported degraded cache mode stores snapshot files
+    # directly instead of requiring privileged symlink creation.
+    download_environment["HF_HUB_DISABLE_SYMLINKS"] = "1"
     for model_id, revision in huggingface_declarations():
-        run_checked([str(python_exe), "-c", code, model_id, revision, str(cache)])
+        run_checked(
+            [str(python_exe), "-c", code, model_id, revision, str(cache)],
+            environment=download_environment,
+        )
 
 
 def file_md5(path: pathlib.Path) -> str:
