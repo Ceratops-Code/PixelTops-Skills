@@ -30,8 +30,29 @@ CONTRACT_PATH = (
     / "runtime-contract.json"
 )
 ENVIRONMENT_MARKER = ".pixeltops-runtime.json"
-MARKER_SCHEMA = "pixeltops-runtime-environment.v1"
+MARKER_SCHEMA = "pixeltops-runtime-environment.v2"
 LOCK_NAME = ".install-runtime.lock"
+ENVIRONMENT_FINGERPRINT_CODE = r"""
+import hashlib
+import importlib.metadata
+import json
+import re
+
+
+def normalize(name):
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+rows = sorted(
+    {
+        (normalize(name), distribution.version)
+        for distribution in importlib.metadata.distributions()
+        if (name := distribution.metadata.get("Name"))
+    }
+)
+payload = json.dumps(rows, ensure_ascii=True, separators=(",", ":")).encode("ascii")
+print(hashlib.sha256(payload).hexdigest())
+""".strip()
 
 
 class InstallError(RuntimeError):
@@ -205,22 +226,43 @@ def read_marker(path: pathlib.Path) -> Mapping[str, object] | None:
     return value if isinstance(value, Mapping) else None
 
 
+def environment_fingerprint(python_exe: pathlib.Path) -> str:
+    """Hash the normalized name and version of every installed distribution."""
+
+    value = run_checked(
+        [str(python_exe), "-c", ENVIRONMENT_FINGERPRINT_CODE]
+    ).lower()
+    if len(value) != 64 or any(
+        character not in "0123456789abcdef" for character in value
+    ):
+        raise InstallError("runtime environment fingerprint is invalid")
+    return value
+
+
 def environment_is_current(
     python_exe: pathlib.Path,
     *,
     python_version: str,
     requirements_sha256: str,
 ) -> bool:
-    """Check only installer-owned state; runtime readiness is validated later."""
+    """Reuse an environment only when its inputs and package inventory match."""
 
     marker = read_marker(python_exe.parents[1] / ENVIRONMENT_MARKER)
-    return bool(
-        python_exe.is_file()
-        and marker
-        and marker.get("schema") == MARKER_SCHEMA
+    if not python_exe.is_file() or not marker:
+        return False
+    expected_fingerprint = marker.get("environment_sha256")
+    if not (
+        marker.get("schema") == MARKER_SCHEMA
         and marker.get("python") == python_version
         and marker.get("requirements_sha256") == requirements_sha256
-    )
+        and isinstance(expected_fingerprint, str)
+    ):
+        return False
+    try:
+        actual = environment_fingerprint(python_exe)
+    except (InstallError, OSError, subprocess.SubprocessError):
+        return False
+    return actual == expected_fingerprint
 
 
 def write_marker(
@@ -228,8 +270,9 @@ def write_marker(
     *,
     python_version: str,
     requirements_sha256: str,
+    environment_sha256: str,
 ) -> None:
-    """Record the exact installer inputs after package synchronization succeeds."""
+    """Record exact installer inputs and installed packages after synchronization."""
 
     marker = environment_root / ENVIRONMENT_MARKER
     marker.write_text(
@@ -238,6 +281,7 @@ def write_marker(
                 "schema": MARKER_SCHEMA,
                 "python": python_version,
                 "requirements_sha256": requirements_sha256,
+                "environment_sha256": environment_sha256,
             },
             indent=2,
             sort_keys=True,
@@ -305,6 +349,7 @@ def install_environment(
             stage,
             python_version=python_version,
             requirements_sha256=digest,
+            environment_sha256=environment_fingerprint(staged_python),
         )
 
         if target.exists():
