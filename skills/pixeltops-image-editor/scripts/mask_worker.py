@@ -165,12 +165,13 @@ def text_object_mask(image: Image.Image, text: str, threshold: float, box_index:
         raise ValueError(f"box index {box_index} is unavailable; detected {len(boxes)} candidate(s)")
     selected_box = boxes[box_index].tolist()
 
-    video_config = Sam2VideoConfig.from_pretrained(sam_path, local_files_only=True)
+    # Read the image-model fields without initializing unused video settings.
+    video_config, _ = Sam2VideoConfig.get_config_dict(sam_path, local_files_only=True)
     image_config = Sam2Config(
-        vision_config=video_config.vision_config,
-        prompt_encoder_config=video_config.prompt_encoder_config,
-        mask_decoder_config=video_config.mask_decoder_config,
-        initializer_range=video_config.initializer_range,
+        vision_config=video_config["vision_config"],
+        prompt_encoder_config=video_config["prompt_encoder_config"],
+        mask_decoder_config=video_config["mask_decoder_config"],
+        initializer_range=video_config["initializer_range"],
     )
     sam_model = Sam2Model.from_pretrained(sam_path, config=image_config, local_files_only=True).eval()
     sam_processor = Sam2Processor.from_pretrained(sam_path, local_files_only=True)
