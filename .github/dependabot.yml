@@ -8,3 +8,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  - package-ecosystem: uv
+    directory: /scripts
+    schedule:
+      interval: weekly
+  - package-ecosystem: uv
+    directory: /skills/sections/python
+    schedule:
+      interval: weekly

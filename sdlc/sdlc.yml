@@ -6,16 +6,21 @@ repository:
   prerequisites:
     uv:
       executable: uv
+  bootstrap:
+    validation:
+      prerequisites: [uv]
+      steps:
+        - run: [uv, sync, --project, scripts, --locked]
   validate:
     repository:
       prerequisites: [uv]
       steps:
-        - run: [uv, run, --no-project, --python, "3.12.13", --with-requirements, requirements-dev.txt, python, scripts/validate-repository.py]
+        - run: [uv, run, --project, scripts, --locked, python, scripts/validate-repository.py]
   tests:
     python:
       prerequisites: [uv]
       steps:
-        - run: [uv, run, --no-project, --python, "3.12.13", --with-requirements, requirements-dev.txt, python, -m, unittest, discover, -s, tests]
+        - run: [uv, run, --project, scripts, --locked, python, scripts/run-tests.py]
 
 deliverables:
   runtime:
@@ -26,8 +31,8 @@ deliverables:
       install:
         prerequisites: [uv]
         steps:
-          - run: [uv, run, --no-project, --python, "3.12.13", python, scripts/install-runtime.py]
-          - run: [uv, run, --no-project, --python, "3.12.13", python, scripts/runtime-validation.py]
+          - run: [uv, run, --project, scripts, --locked, python, scripts/install-runtime.py]
+          - run: [uv, run, --project, scripts, --locked, python, scripts/runtime-validation.py]
   skills:
     tests:
       repository:
@@ -41,4 +46,4 @@ deliverables:
       standalone:
         prerequisites: [uv]
         steps:
-          - run: [uv, run, --no-project, --python, "3.12.13", python, scripts/deploy-skills.py]
+          - run: [uv, run, --project, scripts, --locked, python, scripts/deploy-skills.py]
