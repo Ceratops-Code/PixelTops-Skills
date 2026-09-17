@@ -18,15 +18,19 @@
   skill step, report the conflict instead of silently skipping the step.
 - Do not claim completion unless this skill's completion gate is satisfied,
   intentionally inapplicable, or reported as a blocker.
-- Scope completion, current-state, root-cause, no-fix, unsupported, and
-  durable-resolution claims to evidence actually checked, or to fresh same-task
-  evidence that still applies.
+- Match every completion, current-state, root-cause, no-fix, unsupported, and
+  durable-resolution claim to the exact scope, checks, and fresh evidence
+  actually verified. State important unverified limits; do not infer end-to-end
+  closure from a partial check.
 - Reuse fresh sufficient same-run evidence unless state is uncertain, plausibly
   changed, materially broadened, externally mutable for the decision, or this
   skill explicitly requires a fresh check.
 - Prefer direct local evidence and targeted diagnostics for the next skill
   decision; use current official sources only when local evidence leaves a
   concrete ambiguity or the task depends on unstable external behavior.
+- Resolve missing inputs from current context and the narrowest direct local or
+  named live evidence before asking. Ask only for an input that remains
+  decision-blocking or that the selected skill explicitly forbids inferring.
 - When two active sources use different identities for the same required item,
   treat the producer/current source as authoritative, update stale consumers or
   gates to match it, and ask if authority is unclear.
@@ -36,6 +40,12 @@
 - Ask before risky, destructive, irreversible, credential-dependent, externally
   mutating, complex, invasive, nonstandard, or high-maintenance steps unless the
   user already explicitly requested that tradeoff.
+- Treat audits, diagnostics, recommendations, requested wording, and other
+  advisory requests as non-mutating.
+- Mutate only within the action and target scope of an execution request,
+  confirmation, or standing instruction; choosing a workflow supplies no
+  additional authorization. In a mixed request, mutate only the expressly
+  requested targets.
 - Do not update this `SKILL.md` or other skill/control files during a routine
   run unless the user explicitly asked for skill maintenance or the task cannot
   be completed safely without a narrow in-scope fix.
@@ -43,16 +53,23 @@
   commands, `python -m <module>` entrypoints, or scripts copied into the
   installed skill folder; do not locate shared helpers by absolute paths or by
   the repo's parent directory.
-- When a workflow needs a shared repo-maintenance script, run `scripts/<name>`
-  from the active source checkout root when available, otherwise from the
-  installed skill folder; when a helper is skill-local, run it from that skill
-  folder or the corresponding source skill folder; stop as blocked if neither
-  declared location contains it.
+- For an installed Python helper, read `python_runtime` from the skill's
+  `.runtime-manifest.json` and execute `uv run --no-project --python
+  <python_runtime> python <skill-root>/<helper> ...`; preserve its arguments.
+  Deployment pins that path to one version of the shared skill environment.
+  External tools retain their installer-owned runtimes.
+- Run repository-maintenance executables only from `scripts/` in an active
+  source checkout. Run skill deliverable helpers from the installed skill
+  folder; source maintenance may use the owning skill or declared
+  shared-section source. Stop as blocked when the required declared location
+  is unavailable.
 - When editing an existing text file, preserve its current line-ending
   convention unless intentional normalization is part of the task.
-- Follow this skill's output contract when present; otherwise report only the
-  outcome, unresolved blockers, retained state with reasons, and important
-  unverified items.
+- Treat every skill or action Output Contract as a delta over this default unless
+  it explicitly requires a narrower or prompt-only output: report only the
+  outcome, unresolved blockers or non-blocking debt, intentionally retained
+  state with reasons, and important unverified items. Add domain-specific items
+  only when the local contract names them.
 
 ## Credential Handling
 

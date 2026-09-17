@@ -1,0 +1,28 @@
+name: Validate
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-repository:
+    name: validate-repository
+    runs-on: __RUNNER__
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # __SETUP_STEPS__
+      - name: Validate and test through SDLC
+        uses: __CI_ACTION__
+        with:
+          repo-root: __CI_REPO_ROOT__
+          evidence-file: __CI_EVIDENCE__
+
+      - name: Upload validation evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: ignore
+          name: repository-validation-evidence
+          path: ${{ runner.temp }}/repository-validation.log
