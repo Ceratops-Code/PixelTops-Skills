@@ -6,6 +6,9 @@
   },
   "maintenance_workflows": {},
   "runtime_payloads": {},
+  "python_runtime_skills": [
+    "pixeltops-image-editor"
+  ],
   "skills": {
     "pixeltops-image-editor": [
       "core"

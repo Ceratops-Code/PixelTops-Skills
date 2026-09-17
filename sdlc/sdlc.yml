@@ -1,0 +1,44 @@
+version: 3
+kind: ceratops-sdlc
+
+# Validate and test before selected deployment operations.
+repository:
+  prerequisites:
+    uv:
+      executable: uv
+  validate:
+    repository:
+      prerequisites: [uv]
+      steps:
+        - run: [uv, run, --no-project, --python, "3.12.13", --with-requirements, requirements-dev.txt, python, scripts/validate-repository.py]
+  tests:
+    python:
+      prerequisites: [uv]
+      steps:
+        - run: [uv, run, --no-project, --python, "3.12.13", --with-requirements, requirements-dev.txt, python, -m, unittest, discover, -s, tests]
+
+deliverables:
+  runtime:
+    tests:
+      repository:
+        no-op: Covered by repository.tests.python; installed runtime validation runs during deployment.
+    deploy-local:
+      install:
+        prerequisites: [uv]
+        steps:
+          - run: [uv, run, --no-project, --python, "3.12.13", python, scripts/install-runtime.py]
+          - run: [uv, run, --no-project, --python, "3.12.13", python, scripts/runtime-validation.py]
+  skills:
+    tests:
+      repository:
+        no-op: Covered by repository.tests.python, including skill helper tests.
+    validate:
+      ceratops-managed:
+        handoff: ceratops-skill-lifecycle/source-validate
+    deploy-local:
+      ceratops-managed:
+        handoff: ceratops-skill-lifecycle/deploy
+      standalone:
+        prerequisites: [uv]
+        steps:
+          - run: [uv, run, --no-project, --python, "3.12.13", python, scripts/deploy-skills.py]
