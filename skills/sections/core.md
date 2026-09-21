@@ -53,11 +53,14 @@
   commands, `python -m <module>` entrypoints, or scripts copied into the
   installed skill folder; do not locate shared helpers by absolute paths or by
   the repo's parent directory.
-- For an installed Python helper, read `python_runtime` from the skill's
-  `.runtime-manifest.json` and execute `uv run --no-project --python
-  <python_runtime> python <skill-root>/<helper> ...`; preserve its arguments.
-  Deployment pins that path to one version of the shared skill environment.
-  External tools retain their installer-owned runtimes.
+- For every invocation of an installed Python helper, including retries and
+  diagnostics, use `python_runtime` from that skill's
+  `.runtime-manifest.json`. Before submitting the tool call, verify that the
+  command uses `uv run --no-project --python <python_runtime> python
+  <skill-root>/<helper> ...` with the original arguments. Stop if the
+  command cannot be verified. Deployment pins that path to one version of
+  the shared skill environment. External tools retain their installer-owned
+  runtimes.
 - Run repository-maintenance executables only from `scripts/` in an active
   source checkout. Run skill deliverable helpers from the installed skill
   folder; source maintenance may use the owning skill or declared

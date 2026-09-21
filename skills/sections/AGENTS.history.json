@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "entries": [
+    {
+      "rules": [
+        "*"
+      ],
+      "decision": "Keep shared skill-section rules aligned with their canonical owner, including the installed Python-helper invocation contract.",
+      "reason": "A declared shared section must preserve the canonical retry, diagnostic, and pre-call runtime-verification requirements in every generated skill.",
+      "regression": "Do not retain or reintroduce a weaker local copy of a rule that PixelTops declares as shared."
+    }
+  ]
+}
