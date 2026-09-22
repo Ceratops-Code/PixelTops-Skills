@@ -9,7 +9,7 @@ import math
 import os
 import pathlib
 import sys
-from typing import Any
+from typing import Any, cast
 
 import cv2
 import numpy as np
@@ -268,7 +268,9 @@ def prepare_resize_output(image: Image.Image, output: pathlib.Path, color: str) 
     if output.suffix.lower() not in {".jpg", ".jpeg"}:
         return image
     rgba = image.convert("RGBA")
-    if rgba.getchannel("A").getextrema()[0] < 255:
+    # RGBA alpha is a single-band L image, so its extrema are scalar integers.
+    alpha_minimum, _ = cast(tuple[int, int], rgba.getchannel("A").getextrema())
+    if alpha_minimum < 255:
         if color.lower() == "transparent":
             raise ValueError("JPEG output cannot contain transparency; pass an opaque --color")
         matte = Image.new("RGBA", rgba.size, color_rgba(color))
