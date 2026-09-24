@@ -24,6 +24,9 @@ jobs:
           python scripts/validate-repository.py
           --evidence-file ${{ runner.temp }}/repository-validation.log
 
+      - name: Test repository
+        run: python scripts/run-tests.py
+
       - name: Upload validation evidence
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
