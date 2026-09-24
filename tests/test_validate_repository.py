@@ -100,16 +100,6 @@ class ValidateRepositoryTests(unittest.TestCase):
                     "skills/pixeltops-image-editor/scripts",
                 ),
                 (sys.executable, "-m", "mypy"),
-                (
-                    sys.executable,
-                    "-m",
-                    "unittest",
-                    "discover",
-                    "-s",
-                    "tests",
-                    "-p",
-                    "test_*.py",
-                ),
             ]
             self.assertEqual(exit_code, 0)
             self.assertEqual(stdout, "OK\n")
@@ -128,7 +118,6 @@ class ValidateRepositoryTests(unittest.TestCase):
                     "runtime-contract",
                     "python-compilation",
                     "mypy",
-                    "unit-tests",
                 ],
             )
             self.assertTrue(all(record["status"] == "OK" for record in evidence))
