@@ -164,8 +164,9 @@ def run_lama(image: np.ndarray, mask: np.ndarray) -> np.ndarray:
         mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
     for contour in contours:
+        x, y, width, height = cv2.boundingRect(contour)
         left, top, right, bottom = expanded_crop_box(
-            image.shape, cv2.boundingRect(contour)
+            image.shape, (x, y, width, height)
         )
         generated[top:bottom, left:right] = infer_crop(
             torch,

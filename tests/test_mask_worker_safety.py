@@ -24,9 +24,27 @@ WORKER_ROOT = MASK_WORKER.parent
 sys.path.insert(0, str(WORKER_ROOT))
 
 import inpaint_worker  # noqa: E402
+import mask_worker  # noqa: E402
 
 
 class MaskWorkerSafetyTests(unittest.TestCase):
+    def test_resize_output_preserves_opacity_and_flattens_transparency(self) -> None:
+        opaque = Image.new("RGBA", (2, 2), (200, 100, 50, 255))
+        output = mask_worker.prepare_resize_output(opaque, pathlib.Path("out.jpg"), "transparent")
+        self.assertEqual(output.mode, "RGB")
+        self.assertEqual(output.getpixel((0, 0)), (200, 100, 50))
+
+        transparent = Image.new("RGBA", (2, 2), (200, 100, 50, 128))
+        output = mask_worker.prepare_resize_output(transparent, pathlib.Path("out.jpeg"), "black")
+        self.assertEqual(output.mode, "RGB")
+        self.assertEqual(output.getpixel((0, 0)), (100, 50, 25))
+        with self.assertRaisesRegex(ValueError, "JPEG output cannot contain transparency"):
+            mask_worker.prepare_resize_output(transparent, pathlib.Path("out.jpg"), "transparent")
+        self.assertIs(
+            mask_worker.prepare_resize_output(transparent, pathlib.Path("out.png"), "transparent"),
+            transparent,
+        )
+
     def test_composite_preserves_pixels_outside_allowed_mask(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
@@ -110,6 +128,27 @@ class MaskWorkerSafetyTests(unittest.TestCase):
 
 
 class InpaintWorkerSafetyTests(unittest.TestCase):
+    def test_large_image_uses_opencv_bounds_and_preserves_pixels_outside_crop(self) -> None:
+        image = np.full((900, 1000, 3), 10, dtype=np.uint8)
+        mask = np.zeros((900, 1000), dtype=np.uint8)
+        mask[7:37, 5:25] = 255
+        fake_torch = mock.Mock()
+        with (
+            mock.patch.dict(sys.modules, {"torch": fake_torch}),
+            mock.patch.object(inpaint_worker, "checkpoint_path", return_value=pathlib.Path("model.pt")),
+            mock.patch.object(
+                inpaint_worker, "infer_crop",
+                side_effect=lambda torch, model, crop, crop_mask: np.full_like(crop, 90),
+            ) as infer,
+        ):
+            result = inpaint_worker.run_lama(image, mask)
+        self.assertEqual(result.shape, image.shape)
+        self.assertEqual(infer.call_count, 1)
+        self.assertEqual(infer.call_args.args[2].shape, (286, 276, 3))
+        expected = image.copy()
+        expected[:286, :276] = 90
+        np.testing.assert_array_equal(result, expected)
+
     def test_headless_lama_preserves_dimensions_mask_semantics_and_pixels(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

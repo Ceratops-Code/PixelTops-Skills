@@ -1,49 +1,87 @@
-version: 3
+version: 5
 kind: ceratops-sdlc
 
-# Validate and test before selected deployment operations.
+# Validate and test before explicitly selected installation operations.
 repository:
-  prerequisites:
+  capabilities:
     uv:
       executable: uv
-  bootstrap:
-    validation:
-      prerequisites: [uv]
+  actions:
+    bootstrap:
+      requires:
+        capabilities: [uv]
       steps:
         - run: [uv, sync, --project, scripts, --locked]
-  validate:
-    repository:
-      prerequisites: [uv]
+    validate:
+      requires:
+        capabilities: [uv]
       steps:
         - run: [uv, run, --project, scripts, --locked, python, scripts/validate-repository.py]
-  tests:
-    python:
-      prerequisites: [uv]
+    test:
+      requires:
+        capabilities: [uv]
       steps:
         - run: [uv, run, --project, scripts, --locked, python, scripts/run-tests.py]
 
 deliverables:
-  runtime:
-    tests:
-      repository:
-        no-op: Covered by repository.tests.python; installed runtime validation runs during deployment.
-    deploy-local:
-      install:
-        prerequisites: [uv]
-        steps:
-          - run: [uv, run, --project, scripts, --locked, python, scripts/install-runtime.py]
-          - run: [uv, run, --project, scripts, --locked, python, scripts/runtime-validation.py]
+  tools:
+    pixeltops-runtime:
+      source: scripts/install-runtime.py
+      manifest: skills/pixeltops-image-editor/references/runtime-contract.json
+      prerequisites: []
+      actions:
+        validate:
+          requires:
+            capabilities: []
+          no-op: Repository validation covers the runtime installer and contract.
+        test:
+          requires:
+            capabilities: []
+          no-op: Covered by repository.actions.test; installed runtime validation runs during installation.
+        install:
+          requires:
+            capabilities: [uv]
+          steps:
+            - run: [uv, run, --project, scripts, --locked, python, scripts/install-runtime.py]
+            - run: [uv, run, --project, scripts, --locked, python, scripts/runtime-validation.py]
+    pixeltops-standalone-installer:
+      source: scripts/deploy-skills.py
+      manifest: skills/skill-sections.json
+      prerequisites: []
+      actions:
+        validate:
+          requires:
+            capabilities: []
+          no-op: Repository validation covers the standalone installer and skill manifest.
+        install:
+          requires:
+            capabilities: [uv]
+          steps:
+            - run: [uv, run, --project, scripts, --locked, python, scripts/deploy-skills.py]
   skills:
-    tests:
-      repository:
-        no-op: Covered by repository.tests.python, including skill helper tests.
-    validate:
-      ceratops-managed:
-        handoff: ceratops-skill-lifecycle/source-validate
-    deploy-local:
-      ceratops-managed:
-        handoff: ceratops-skill-lifecycle/deploy
-      standalone:
-        prerequisites: [uv]
-        steps:
-          - run: [uv, run, --project, scripts, --locked, python, scripts/deploy-skills.py]
+    pixeltops-image-editor:
+      source: skills/pixeltops-image-editor
+      prerequisites: []
+      actions:
+        validate:
+          requires:
+            capabilities: []
+          steps:
+            - handoff:
+                lifecycle: ceratops-skill-lifecycle
+                action: source-validate
+                inputs:
+                  skill: pixeltops-image-editor
+        test:
+          requires:
+            capabilities: []
+          no-op: Covered by repository.actions.test, including skill helper tests.
+        install:
+          requires:
+            capabilities: []
+          steps:
+            - handoff:
+                lifecycle: ceratops-skill-lifecycle
+                action: deploy
+                inputs:
+                  skill: pixeltops-image-editor

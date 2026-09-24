@@ -73,19 +73,6 @@ def repository_checks() -> tuple[Check, ...]:
             ),
         ),
         Check("mypy", (sys.executable, "-m", "mypy")),
-        Check(
-            "unit-tests",
-            (
-                sys.executable,
-                "-m",
-                "unittest",
-                "discover",
-                "-s",
-                "tests",
-                "-p",
-                "test_*.py",
-            ),
-        ),
     )
 
 
